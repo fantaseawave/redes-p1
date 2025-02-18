@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #!/usr/bin/env python3
 import asyncio
 from tcp import Servidor
@@ -70,3 +71,77 @@ _nick_dict = {}
 _dados_residuais = b''
 servidor.registrar_monitor_de_conexoes_aceitas(conexao_aceita)
 asyncio.get_event_loop().run_forever()
+=======
+#!/usr/bin/env python3
+import asyncio
+from tcp import Servidor
+import re
+import scripts.Message_Handler as MH
+# from scripts.Message_Handler import Message_Handler
+
+def validar_nome(nome):
+    return re.match(br'^[a-zA-Z][a-zA-Z0-9_-]*$', nome) is not None
+
+def sair(conexao):
+  con = MH._nick_dict.get(conexao, b'*')
+
+  mensagemQuit = b':' + con + b' QUIT :Connection closed\r\n'
+  quitSendingList = []
+
+  # procurar todos os canais que a conexao faz parte e sair deles
+  for canal in MH._canal_dict:
+    if conexao in list(MH._canal_dict[canal].keys()):
+      quitSendingList += list(MH._canal_dict[canal].keys())
+      MH._canal_dict[canal].pop(conexao)
+
+  # ordena a lista de envios
+  quitSendingList = set(quitSendingList)
+  # enviar a mensagem de QUIT para todos os canais
+  for conex in quitSendingList:
+    print("Desconectando... ",conex, mensagemQuit)
+    conex.enviar(mensagemQuit)
+
+  # remover o apelido do dicionário
+  if MH._nick_dict.get(conexao) is not None:
+    MH._nick_dict.pop(conexao)
+
+  conexao.fechar()
+
+def dados_recebidos(conexao, dados):
+    if dados == b'':
+        return sair(conexao)
+    
+    mensagens = []
+    global _dados_residuais
+    if not dados.startswith((b'PING', b'PRIVMSG', b'NICK', b'JOIN', b'PART')):
+        lines = _dados_residuais + dados
+    else:
+        lines = dados
+    mensagens = lines.split(b'\r\n')
+    
+    # Armazenar os dados residuais para uso posterior
+    if not mensagens[-1].endswith(b'\r\n'):
+       _dados_residuais = mensagens.pop(-1)
+    else:
+       _dados_residuais =  b''
+
+    # Processar cada mensagem separadamente
+    for mensagem in mensagens:
+        print(conexao, mensagem)
+        alvo, resposta = MH.Message_Handler(conexao, mensagem)
+
+        print(alvo, resposta)
+        if mensagem != b'':
+            alvo.enviar(resposta)
+
+
+def conexao_aceita(conexao):
+    print(conexao, 'nova conexão')
+    conexao.registrar_recebedor(dados_recebidos)
+
+servidor = Servidor(6667)
+_nick_dict = {}
+_dados_residuais = b''
+servidor.registrar_monitor_de_conexoes_aceitas(conexao_aceita)
+asyncio.get_event_loop().run_forever()
+>>>>>>> 4c53234 (final)

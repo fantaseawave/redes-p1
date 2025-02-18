@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 name: CI Grader
 on: push
 jobs:
@@ -11,3 +12,18 @@ jobs:
         run: |
           if [[ -e grader ]]; then echo "grader already exists" >&2; exit 1; fi
           ./run-grader
+=======
+name: CI Grader
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: Download and run grader
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ -e grader ]]; then echo "grader already exists" >&2; exit 1; fi
+          ./run-grader
+>>>>>>> 4c53234 (final)
