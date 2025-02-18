@@ -30,3 +30,4 @@ class Conexao:
     def fechar(self):
         asyncio.get_event_loop().remove_reader(self.s)
         self.s.close()
+#teste
