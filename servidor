@@ -1,29 +1,63 @@
 #!/usr/bin/env python3
+
 import asyncio
-from tcp import Servidor
 import re
+from tcp import Servidor
+import scripts.Message_Handler as MH
 
-
+# Valida se o nome está no formato correto
 def validar_nome(nome):
     return re.match(br'^[a-zA-Z][a-zA-Z0-9_-]*$', nome) is not None
 
-
+# Lida com a desconexão do cliente
 def sair(conexao):
-    print(conexao, 'conexão fechada')
+    apelido = MH._nick_dict.pop(conexao, b'*')
+    mensagem_quit = f':{apelido.decode()} QUIT :Connection closed\r\n'.encode()
+
+    quit_sending_list = set()
+
+    # Remove o cliente de todos os canais
+    for canal, membros in MH._canal_dict.items():
+        if conexao in membros:
+            membros.pop(conexao)
+            quit_sending_list.update(membros.keys())
+
+    # Notifica os outros membros sobre a saída
+    for conex in quit_sending_list:
+        print("Desconectando...", conex, mensagem_quit)
+        conex.enviar(mensagem_quit)
+
     conexao.fechar()
 
-
+# Lida com os dados recebidos do cliente
 def dados_recebidos(conexao, dados):
-    if dados == b'':
+    if not dados:
         return sair(conexao)
-    print(conexao, dados)
 
+    global _dados_residuais
 
+    # Garante o processamento correto dos dados
+    linhas = (_dados_residuais + dados) if not dados.startswith((b'PING', b'PRIVMSG', b'NICK', b'JOIN', b'PART')) else dados
+    mensagens = linhas.split(b'\r\n')
+
+    _dados_residuais = b'' if linhas.endswith(b'\r\n') else mensagens.pop(-1)
+
+    # Processa cada mensagem individualmente
+    for mensagem in mensagens:
+        if mensagem:
+            print(conexao, mensagem)
+            alvo, resposta = MH.Message_Handler(conexao, mensagem)
+            print(alvo, resposta)
+            alvo.enviar(resposta)
+
+# Lida com novas conexões
 def conexao_aceita(conexao):
     print(conexao, 'nova conexão')
     conexao.registrar_recebedor(dados_recebidos)
 
-
+# Inicializa o servidor
 servidor = Servidor(6667)
+_dados_residuais = b''
+
 servidor.registrar_monitor_de_conexoes_aceitas(conexao_aceita)
 asyncio.get_event_loop().run_forever()
